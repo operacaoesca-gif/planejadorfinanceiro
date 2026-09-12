@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --blue-700:#213CC7;
@@ -172,6 +174,40 @@
 
   .empty-hint{color:var(--muted);font-size:13.5px;padding:20px 0;text-align:center;}
 
+  /* Export bar */
+  .export-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:12px 16px;margin-bottom:22px;flex-wrap:wrap;
+  }
+  .export-bar .exp-text{font-size:13px;color:var(--muted);}
+  .export-bar .exp-actions{display:flex;gap:10px;}
+  .btn.pdf{background:var(--red);}
+  .btn.pdf:hover{background:#A6392A;}
+  .btn.sheet{background:var(--green);}
+  .btn.sheet:hover{background:#0E7658;}
+
+  /* How-to-use guide */
+  .steps-list{counter-reset:step;}
+  .step-item{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--border);}
+  .step-item:last-child{border-bottom:none;}
+  .step-num{
+    counter-increment:step;flex-shrink:0;width:32px;height:32px;border-radius:50%;
+    background:var(--blue-50);color:var(--blue-600);font-family:'Sora',sans-serif;font-weight:700;
+    display:flex;align-items:center;justify-content:center;font-size:14px;
+  }
+  .step-num::before{content:counter(step);}
+  .step-body h4{font-size:14.5px;margin-bottom:4px;}
+  .step-body p{color:var(--muted);font-size:13.5px;}
+  .welcome-banner{
+    background:linear-gradient(120deg,var(--blue-600),var(--blue-700));color:#fff;border-radius:var(--radius-lg);
+    padding:26px 28px;margin-bottom:20px;
+  }
+  .welcome-banner h2{color:#fff;font-size:19px;}
+  .welcome-banner p{color:rgba(255,255,255,.85);margin-top:8px;font-size:14px;max-width:560px;}
+  .welcome-banner .btn{margin-top:16px;background:#fff;color:var(--blue-700);}
+  .welcome-banner .btn:hover{background:#EEF1FF;}
+
   ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:#C9CFE0;border-radius:20px;}
 
   @media (max-width:820px){
@@ -198,7 +234,11 @@
       </div>
     </div>
     <nav class="navlist">
-      <button class="navitem active" data-view="dashboard">
+      <button class="navitem active" data-view="comousar">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 16V16.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9.5 9.3C9.5 8 10.6 7 12 7C13.4 7 14.5 8 14.5 9.3C14.5 10.6 12 11 12 13.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Como usar
+      </button>
+      <button class="navitem" data-view="dashboard">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/></svg>
         Dashboard
       </button>
@@ -216,7 +256,7 @@
       </button>
       <button class="navitem" data-view="guia">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 4.5C4 3.7 4.7 3 5.5 3H12V21H5.5C4.7 21 4 20.3 4 19.5V4.5Z" stroke="currentColor" stroke-width="2"/><path d="M20 4.5C20 3.7 19.3 3 18.5 3H12V21H18.5C19.3 21 20 20.3 20 19.5V4.5Z" stroke="currentColor" stroke-width="2"/></svg>
-        Guia
+        Glossário
       </button>
     </nav>
     <div class="sidebar-foot">💡 Seus dados ficam salvos apenas no seu navegador.</div>
@@ -224,8 +264,83 @@
 
   <main class="content">
 
+    <div class="export-bar">
+      <span class="exp-text">⚠️ Seus dados ficam só neste navegador — exporte de vez em quando para não perder seu orçamento.</span>
+      <div class="exp-actions">
+        <button class="btn sheet" id="exportSheetBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3V16M12 16L7 11M12 16L17 11" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19H20" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+          Baixar planilha
+        </button>
+        <button class="btn pdf" id="exportPdfBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3V16M12 16L7 11M12 16L17 11" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19H20" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+          Baixar PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- COMO USAR -->
+    <section id="view-comousar" class="view active">
+      <div class="page-head">
+        <h1>Como usar o Planeja+</h1>
+        <p>Siga os passos abaixo para montar seu orçamento em poucos minutos.</p>
+      </div>
+
+      <div class="welcome-banner">
+        <h2>Seus dados ficam só no seu navegador 🔒</h2>
+        <p>O Planeja+ não usa servidor nem banco de dados — tudo o que você preenche é salvo localmente. Por isso, sempre que terminar de ajustar seu orçamento, use os botões "Baixar planilha" ou "Baixar PDF" no topo da tela para guardar uma cópia do resultado.</p>
+      </div>
+
+      <div class="card">
+        <h3>Passo a passo</h3>
+        <div class="steps-list">
+          <div class="step-item">
+            <div class="step-num"></div>
+            <div class="step-body">
+              <h4>Informe sua receita mensal</h4>
+              <p>Vá até o <b>Dashboard</b> e digite quanto você recebe por mês, além da % que quer poupar (a recomendação é começar em 20%).</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num"></div>
+            <div class="step-body">
+              <h4>Cadastre suas despesas, uma por uma</h4>
+              <p>Na aba <b>Despesas</b>, adicione cada gasto individualmente (nome, categoria, tipo e valor) e clique em "Adicionar". A lista e os totais são atualizados na hora.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num"></div>
+            <div class="step-body">
+              <h4>Veja o diagnóstico automático</h4>
+              <p>De volta ao <b>Dashboard</b>, confira quais categorias estão acima do ideal e quanto precisa cortar para bater sua meta de poupança.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num"></div>
+            <div class="step-body">
+              <h4>Simule seus investimentos</h4>
+              <p>Na aba <b>Investimentos</b>, informe valor inicial, aporte mensal e taxas para comparar CDB (% do CDI) com a poupança ao longo do tempo.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num"></div>
+            <div class="step-body">
+              <h4>Consulte as sugestões de alocação</h4>
+              <p>Em <b>Sugestões</b>, veja sua reserva de emergência ideal e como distribuir o que sobra de acordo com seu perfil de risco.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num"></div>
+            <div class="step-body">
+              <h4>Baixe uma cópia do seu orçamento</h4>
+              <p>Use os botões no topo de qualquer tela para exportar tudo em <b>PDF</b> (relatório completo) ou em <b>planilha</b> (.csv, abre no Excel e no Google Sheets).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- DASHBOARD -->
-    <section id="view-dashboard" class="view active">
+    <section id="view-dashboard" class="view">
       <div class="page-head">
         <h1>Olá! 👋</h1>
         <p>Veja para onde seu dinheiro está indo e quanto dá para investir esse mês.</p>
@@ -557,6 +672,7 @@
 
   var catChart = null;
   var investChart = null;
+  var lastSim = null;
 
   /* ---------- Render: Dashboard ---------- */
   function renderDashboard(){
@@ -738,19 +854,29 @@
     var d = document.createElement('div'); d.textContent = s; return d.innerHTML;
   }
 
-  document.getElementById('addExpenseBtn').addEventListener('click', function(){
-    var name = document.getElementById('expName').value.trim();
+  function addExpenseFromForm(){
+    var nameEl = document.getElementById('expName');
+    var name = nameEl.value.trim();
     var category = document.getElementById('expCategory').value;
     var type = document.getElementById('expType').value;
-    var value = Number(document.getElementById('expValue').value);
+    var valueEl = document.getElementById('expValue');
+    var value = Number(valueEl.value);
     if(!name || !value || value <= 0){
       alert('Preencha o nome e um valor válido para a despesa.');
       return;
     }
+    // Adiciona uma despesa por vez — categoria e tipo ficam selecionados para o próximo lançamento
     state.expenses.push({id:uid(), name:name, category:category, type:type, value:value});
-    document.getElementById('expName').value = '';
-    document.getElementById('expValue').value = '';
+    nameEl.value = '';
+    valueEl.value = '';
     saveState(); renderExpenses(); renderDashboard(); renderSugestoes();
+    nameEl.focus();
+  }
+  document.getElementById('addExpenseBtn').addEventListener('click', addExpenseFromForm);
+  ['expName','expValue'].forEach(function(id){
+    document.getElementById(id).addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){ e.preventDefault(); addExpenseFromForm(); }
+    });
   });
 
   /* ---------- Render: Investimentos ---------- */
@@ -810,6 +936,12 @@
         plugins:{legend:{position:'top', labels:{boxWidth:10, font:{size:11}}}}
       }
     });
+
+    lastSim = {
+      months: months, cdiAnnual: cdiAnnual, cdiPercent: cdiPercent, poupancaAnnual: poupancaAnnual,
+      initial: initial, monthly: monthly,
+      finalCdb: cdbSeries[months], finalPoup: poupSeries[months]
+    };
 
     var milestoneMonths = [6,12,24,36,60].filter(function(mm){ return mm<=months; });
     var grid = document.getElementById('milestoneGrid');
@@ -882,6 +1014,196 @@
       bars.appendChild(row);
     });
   }
+
+  /* ---------- Exportar planilha (CSV) ---------- */
+  function csvEscape(v){
+    v = String(v==null?'':v);
+    if(/[",;\n]/.test(v)) v = '"'+v.replace(/"/g,'""')+'"';
+    return v;
+  }
+
+  function downloadFile(filename, content, mime){
+    var blob = new Blob([content], {type: mime});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function exportCSV(){
+    var t = computeTotals();
+    var targetRate = Number(state.targetRate||0.2);
+    var recommended = t.income * targetRate;
+    var lines = [];
+    var today = new Date().toLocaleDateString('pt-BR');
+
+    lines.push(['Planeja+ - Orcamento pessoal']);
+    lines.push(['Gerado em', today]);
+    lines.push([]);
+    lines.push(['RESUMO']);
+    lines.push(['Receita mensal', t.income]);
+    lines.push(['Meta de poupanca (%)', Math.round(targetRate*100)]);
+    lines.push(['Total de gastos', t.total.toFixed(2)]);
+    lines.push(['Sobra do mes', t.surplus.toFixed(2)]);
+    lines.push(['Taxa de poupanca atual (%)', (t.savingsRate*100).toFixed(1)]);
+    lines.push(['Poupanca recomendada/mes', recommended.toFixed(2)]);
+    lines.push([]);
+    lines.push(['DESPESAS']);
+    lines.push(['Nome','Categoria','Tipo','Valor']);
+    state.expenses.forEach(function(e){
+      var cat = CATEGORIES.find(function(c){return c.id===e.category;});
+      lines.push([e.name, cat?cat.label:e.category, e.type==='fixo'?'Fixo':'Variável', Number(e.value).toFixed(2)]);
+    });
+    lines.push([]);
+    lines.push(['DIAGNOSTICO POR CATEGORIA']);
+    lines.push(['Categoria','Valor gasto','% da receita','% ideal']);
+    CATEGORIES.forEach(function(c){
+      var v = t.byCategory[c.id];
+      if(v>0){
+        lines.push([c.label, v.toFixed(2), t.income>0?((v/t.income)*100).toFixed(1):'0', Math.round(c.benchmark*100)]);
+      }
+    });
+    if(lastSim){
+      lines.push([]);
+      lines.push(['SIMULACAO DE INVESTIMENTO']);
+      lines.push(['Valor inicial', lastSim.initial]);
+      lines.push(['Aporte mensal', lastSim.monthly]);
+      lines.push(['CDI ao ano (%)', lastSim.cdiAnnual]);
+      lines.push(['% do CDI no CDB', lastSim.cdiPercent]);
+      lines.push(['Poupanca ao ano (%)', lastSim.poupancaAnnual]);
+      lines.push(['Prazo (meses)', lastSim.months]);
+      lines.push(['Valor final estimado - CDB', lastSim.finalCdb.toFixed(2)]);
+      lines.push(['Valor final estimado - Poupanca', lastSim.finalPoup.toFixed(2)]);
+    }
+    lines.push([]);
+    lines.push(['SUGESTAO DE ALOCACAO', 'Perfil: '+state.riskProfile]);
+    lines.push(['Destino','% sugerido']);
+    ALLOCATIONS[state.riskProfile].forEach(function(a){
+      lines.push([a.name, a.pct]);
+    });
+
+    var csv = lines.map(function(row){ return row.map(csvEscape).join(';'); }).join('\r\n');
+    csv = '\uFEFF' + csv; // BOM para acentuação correta no Excel
+    downloadFile('planeja-orcamento.csv', csv, 'text/csv;charset=utf-8;');
+  }
+
+  /* ---------- Exportar PDF ---------- */
+  function exportPDF(){
+    var t = computeTotals();
+    var targetRate = Number(state.targetRate||0.2);
+    var recommended = t.income * targetRate;
+    var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if(!jsPDFCtor){ alert('Não foi possível carregar o gerador de PDF. Verifique sua conexão e tente novamente.'); return; }
+    var doc = new jsPDFCtor({unit:'pt', format:'a4'});
+    var margin = 40, y = 50;
+    var pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(33,60,199);
+    doc.text('Planeja+ — Relatório de orçamento pessoal', margin, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(107,115,133);
+    y += 18;
+    doc.text('Gerado em '+new Date().toLocaleDateString('pt-BR'), margin, y);
+    y += 26;
+
+    doc.setDrawColor(230,233,242); doc.line(margin, y, pageWidth-margin, y); y += 22;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(27,34,51);
+    doc.text('Resumo financeiro', margin, y); y += 8;
+
+    doc.autoTable({
+      startY: y,
+      margin:{left:margin, right:margin},
+      theme:'plain',
+      styles:{fontSize:10, cellPadding:4},
+      head: [['Indicador','Valor']],
+      body: [
+        ['Receita mensal', fmtBRL(t.income)],
+        ['Meta de poupança', Math.round(targetRate*100)+'% da receita ('+fmtBRL(recommended)+'/mês)'],
+        ['Total de gastos', fmtBRL(t.total)],
+        ['Sobra do mês', fmtBRL(t.surplus)],
+        ['Taxa de poupança atual', Math.round(t.savingsRate*100)+'%']
+      ],
+      headStyles:{fillColor:[238,241,255], textColor:[33,60,199]}
+    });
+    y = doc.lastAutoTable.finalY + 24;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text('Despesas cadastradas', margin, y); y += 8;
+    var expenseRows = state.expenses.map(function(e){
+      var cat = CATEGORIES.find(function(c){return c.id===e.category;});
+      return [e.name, cat?cat.label:e.category, e.type==='fixo'?'Fixo':'Variável', fmtBRL(Number(e.value))];
+    });
+    if(expenseRows.length===0) expenseRows = [['Nenhuma despesa cadastrada','—','—','—']];
+    doc.autoTable({
+      startY: y, margin:{left:margin, right:margin}, theme:'striped', styles:{fontSize:9.5, cellPadding:4},
+      head:[['Nome','Categoria','Tipo','Valor']], body: expenseRows,
+      headStyles:{fillColor:[61,95,255], textColor:[255,255,255]}
+    });
+    y = doc.lastAutoTable.finalY + 24;
+
+    if(y > 650){ doc.addPage(); y = 50; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text('Diagnóstico por categoria', margin, y); y += 8;
+    var diagRows = [];
+    CATEGORIES.forEach(function(c){
+      var v = t.byCategory[c.id];
+      if(v>0){
+        var pctIncome = t.income>0 ? (v/t.income*100).toFixed(1) : '—';
+        var status = t.income>0 && (v/t.income) > c.benchmark ? 'Acima do ideal' : 'Dentro do ideal';
+        diagRows.push([c.label, fmtBRL(v), pctIncome+'%', Math.round(c.benchmark*100)+'%', status]);
+      }
+    });
+    if(diagRows.length===0) diagRows=[['Sem despesas cadastradas','—','—','—','—']];
+    doc.autoTable({
+      startY:y, margin:{left:margin,right:margin}, theme:'striped', styles:{fontSize:9.5, cellPadding:4},
+      head:[['Categoria','Valor','% da receita','% ideal','Status']], body:diagRows,
+      headStyles:{fillColor:[61,95,255], textColor:[255,255,255]}
+    });
+    y = doc.lastAutoTable.finalY + 24;
+
+    if(lastSim){
+      if(y > 620){ doc.addPage(); y = 50; }
+      doc.setFont('helvetica','bold'); doc.setFontSize(13);
+      doc.text('Simulação de investimento', margin, y); y += 8;
+      doc.autoTable({
+        startY:y, margin:{left:margin,right:margin}, theme:'plain', styles:{fontSize:10, cellPadding:4},
+        head:[['Parâmetro','Valor']],
+        body:[
+          ['Valor inicial', fmtBRL(lastSim.initial)],
+          ['Aporte mensal', fmtBRL(lastSim.monthly)],
+          ['CDI ao ano', lastSim.cdiAnnual+'%'],
+          ['% do CDI aplicado no CDB', lastSim.cdiPercent+'%'],
+          ['Poupança ao ano', lastSim.poupancaAnnual+'%'],
+          ['Prazo simulado', lastSim.months+' meses'],
+          ['Valor final estimado — CDB', fmtBRL(lastSim.finalCdb)],
+          ['Valor final estimado — Poupança', fmtBRL(lastSim.finalPoup)]
+        ],
+        headStyles:{fillColor:[238,241,255], textColor:[33,60,199]}
+      });
+      y = doc.lastAutoTable.finalY + 24;
+    }
+
+    if(y > 620){ doc.addPage(); y = 50; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text('Sugestão de alocação — perfil '+state.riskProfile, margin, y); y += 8;
+    doc.autoTable({
+      startY:y, margin:{left:margin,right:margin}, theme:'plain', styles:{fontSize:10, cellPadding:4},
+      head:[['Destino','% sugerido']],
+      body: ALLOCATIONS[state.riskProfile].map(function(a){ return [a.name, a.pct+'%']; }),
+      headStyles:{fillColor:[238,241,255], textColor:[33,60,199]}
+    });
+    y = doc.lastAutoTable.finalY + 20;
+
+    doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(150,155,170);
+    var disclaimer = 'Este relatório é gerado automaticamente com base nos dados informados pelo usuário e tem finalidade educativa. Não constitui recomendação de investimento personalizada.';
+    doc.text(doc.splitTextToSize(disclaimer, pageWidth - margin*2), margin, y+10);
+
+    doc.save('planeja-relatorio.pdf');
+  }
+
+  document.getElementById('exportSheetBtn').addEventListener('click', exportCSV);
+  document.getElementById('exportPdfBtn').addEventListener('click', exportPDF);
 
   /* ---------- Init ---------- */
   renderDashboard();
