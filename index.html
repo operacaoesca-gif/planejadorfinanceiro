@@ -142,6 +142,20 @@
 
   .invest-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:18px;}
   @media (max-width:980px){.invest-grid{grid-template-columns:1fr;}}
+
+  .obj-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  @media (max-width:980px){.obj-grid{grid-template-columns:repeat(2,1fr);}}
+  .obj-card{
+    border:1.5px solid var(--border);border-radius:14px;padding:14px 12px;text-align:center;background:#fff;
+  }
+  .obj-card .obj-icon{font-size:22px;margin-bottom:6px;}
+  .obj-card .obj-label{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;}
+  .obj-card .obj-blurb{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.35;}
+  .obj-card.active{border-color:var(--blue-500);background:var(--blue-50);}
+  .btn.small{font-size:12px;padding:6px 12px;}
+
+  .invest-headline{background:var(--blue-50);border-radius:14px;padding:16px;font-size:14px;color:var(--blue-700);}
+  .invest-headline b{font-family:'Sora',sans-serif;}
   .milestone-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px;}
   @media (max-width:900px){.milestone-grid{grid-template-columns:repeat(2,1fr);}}
   .milestone{background:#FAFBFF;border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;}
@@ -317,8 +331,8 @@
           <div class="step-item">
             <div class="step-num"></div>
             <div class="step-body">
-              <h4>Simule seus investimentos</h4>
-              <p>Na aba <b>Investimentos</b>, informe valor inicial, aporte mensal e taxas para comparar CDB (% do CDI) com a poupança ao longo do tempo.</p>
+              <h4>Simule seus investimentos por objetivo</h4>
+              <p>Na aba <b>Investimentos</b>, escolha o que você quer conquistar (reserva, viagem, casa...), diga quanto já tem e quanto guarda por mês. O Planeja+ estima automaticamente quando você chega lá — sem precisar entender de taxas.</p>
             </div>
           </div>
           <div class="step-item">
@@ -456,49 +470,66 @@
     <!-- INVESTIMENTOS -->
     <section id="view-investimentos" class="view">
       <div class="page-head">
-        <h1>Simulador de investimentos</h1>
-        <p>Veja quanto você teria acumulado investindo em CDB (% do CDI) comparado à poupança.</p>
+        <h1>Para onde você quer levar esse dinheiro?</h1>
+        <p>Escolha um objetivo, diga quanto consegue guardar por mês — a gente cuida da conta pra você.</p>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <h3>1. Qual é o seu objetivo?</h3>
+        <div class="obj-grid" id="objGrid"></div>
       </div>
 
       <div class="invest-grid">
         <div class="card">
-          <h3>Parâmetros</h3>
+          <h3>2. Quanto dinheiro entra nessa conta?</h3>
           <div class="field">
-            <label>Valor inicial (R$)</label>
-            <input type="number" id="invInitial" min="0" step="50">
+            <label>Quanto você já tem guardado hoje? (R$)</label>
+            <input type="number" id="invInitial" min="0" step="50" placeholder="0">
           </div>
           <div class="field">
-            <label>Aporte mensal (R$)</label>
-            <input type="number" id="invMonthly" min="0" step="50">
+            <label>Quanto consegue guardar por mês? (R$)</label>
+            <input type="number" id="invMonthly" min="0" step="50" placeholder="0">
+            <button class="btn secondary small" id="useRecommendedBtn" type="button" style="margin-top:8px;padding:6px 12px;">Usar minha poupança recomendada</button>
           </div>
-          <div class="field-row">
-            <div class="field">
-              <label>CDI ao ano (%)</label>
-              <input type="number" id="invCdiRate" min="0" step="0.1">
-            </div>
-            <div class="field">
-              <label>% do CDI do CDB</label>
-              <input type="number" id="invCdiPercent" min="0" step="1">
-            </div>
+          <div class="field">
+            <label>Tem um valor que quer alcançar? (opcional)</label>
+            <input type="number" id="invGoal" min="0" step="100" placeholder="Ex: 20000">
           </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Poupança ao ano (%)</label>
-              <input type="number" id="invPoupanca" min="0" step="0.1">
-            </div>
-            <div class="field">
-              <label>Prazo (meses)</label>
-              <input type="number" id="invMonths" min="1" max="360" step="1">
-            </div>
+          <div class="field" id="horizonField">
+            <label>Se não souber o valor, por quanto tempo quer projetar?</label>
+            <select id="invHorizon">
+              <option value="6">6 meses</option>
+              <option value="12">1 ano</option>
+              <option value="24" selected>2 anos</option>
+              <option value="36">3 anos</option>
+              <option value="60">5 anos</option>
+              <option value="120">10 anos</option>
+            </select>
           </div>
-          <button class="btn" id="simulateBtn" style="width:100%;justify-content:center;">Simular projeção</button>
-          <p class="small muted" style="margin-top:12px;">Consulte a taxa CDI atual no site do Banco Central antes de decidir. Os valores aqui são estimativas para planejamento, não uma promessa de rentabilidade.</p>
+
+          <button class="btn ghost" id="toggleAdvancedBtn" type="button" style="width:100%;justify-content:center;margin-bottom:10px;">⚙️ Ajustar taxas manualmente (opcional)</button>
+          <div id="advancedRates" style="display:none;">
+            <div class="field-row">
+              <div class="field">
+                <label>Rendimento investindo (% ao ano)</label>
+                <input type="number" id="invRatePct" min="0" step="0.1">
+              </div>
+              <div class="field">
+                <label>Rendimento parado/poupança (% ao ano)</label>
+                <input type="number" id="invParadoPct" min="0" step="0.1">
+              </div>
+            </div>
+            <p class="small muted">Não sabe esses números? Deixe como está — usamos uma estimativa segura de referência (baseada no CDI). Consulte o Banco Central para a taxa atual se quiser precisão.</p>
+          </div>
+
+          <button class="btn" id="simulateBtn" style="width:100%;justify-content:center;">Ver projeção</button>
         </div>
 
         <div class="card">
-          <h3>Projeção acumulada</h3>
-          <div style="height:230px;"><canvas id="chartInvest"></canvas></div>
+          <div class="invest-headline" id="investHeadline"></div>
+          <div style="height:210px;margin-top:14px;"><canvas id="chartInvest"></canvas></div>
           <div class="milestone-grid" id="milestoneGrid"></div>
+          <p class="small muted" style="margin-top:14px;">Estimativa para planejamento, não uma promessa de rentabilidade. Rendimentos reais variam conforme o produto e o cenário econômico.</p>
         </div>
       </div>
     </section>
@@ -597,12 +628,23 @@
     ]
   };
 
+  var OBJECTIVES = [
+    {id:'emergencia',   icon:'🧯', label:'Reserva de emergência',     blurb:'Dinheiro sempre disponível para imprevistos', investRate:11.5, horizon:12},
+    {id:'viagem',       icon:'✈️', label:'Viagem',                     blurb:'Aquela viagem que você quer fazer',            investRate:11.5, horizon:12},
+    {id:'carro',        icon:'🚗', label:'Comprar um carro',           blurb:'À vista ou para dar de entrada',               investRate:11.5, horizon:24},
+    {id:'casa',         icon:'🏠', label:'Comprar uma casa',           blurb:'Entrada do imóvel próprio',                    investRate:12,   horizon:60},
+    {id:'estudos',      icon:'🎓', label:'Estudos / curso',            blurb:'Faculdade, MBA, intercâmbio',                  investRate:11.5, horizon:24},
+    {id:'patrimonio',   icon:'📈', label:'Crescer patrimônio',         blurb:'Construir independência financeira',           investRate:12,   horizon:120},
+    {id:'outro',        icon:'✏️', label:'Outro objetivo',             blurb:'Escolha seu próprio prazo e valor',            investRate:11.5, horizon:24}
+  ];
+  var PARADO_RATE_DEFAULT = 6.2; // referência de poupança tradicional / dinheiro parado
+
   var STORAGE_KEY = 'planejaFinanceiroState_v1';
 
   function loadState(){
     try{
       var raw = localStorage.getItem(STORAGE_KEY);
-      if(raw) return JSON.parse(raw);
+      if(raw) return migrateInvestment(JSON.parse(raw));
     }catch(e){}
     return {
       income: 4500,
@@ -615,8 +657,27 @@
         {id:'e4', name:'Streamings', category:'assinaturas', type:'fixo', value:90},
         {id:'e5', name:'Lazer / saídas', category:'lazer', type:'variavel', value:320}
       ],
-      investment: {initial:1000, monthly:500, cdiRate:10.75, cdiPercent:100, poupancaRate:6.17, months:36}
+      investment: {objective:'emergencia', initial:1000, monthly:500, goal:null, horizonMonths:12, investRate:11.5, paradoRate:PARADO_RATE_DEFAULT, useCustom:false}
     };
+  }
+
+  // Converte dados salvos no formato antigo (CDI/CDB/poupança) para o novo formato por objetivo
+  function migrateInvestment(s){
+    var inv = s.investment || {};
+    if(!inv.objective){
+      var derivedRate = (inv.cdiRate!=null && inv.cdiPercent!=null) ? (inv.cdiRate*inv.cdiPercent/100) : 11.5;
+      s.investment = {
+        objective: 'outro',
+        initial: inv.initial||0,
+        monthly: inv.monthly||0,
+        goal: null,
+        horizonMonths: inv.months||24,
+        investRate: derivedRate,
+        paradoRate: inv.poupancaRate!=null ? inv.poupancaRate : PARADO_RATE_DEFAULT,
+        useCustom: true
+      };
+    }
+    return s;
   }
 
   var state = loadState();
@@ -880,53 +941,129 @@
   });
 
   /* ---------- Render: Investimentos ---------- */
+  var selectedObjectiveId = state.investment.objective || 'emergencia';
+
+  function getObjective(id){
+    return OBJECTIVES.find(function(o){ return o.id === id; }) || OBJECTIVES[0];
+  }
+
+  function renderObjectiveGrid(){
+    var host = document.getElementById('objGrid');
+    host.innerHTML = '';
+    OBJECTIVES.forEach(function(o){
+      var card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'obj-card' + (o.id === selectedObjectiveId ? ' active' : '');
+      card.innerHTML = '<div class="obj-icon">'+o.icon+'</div><div class="obj-label">'+o.label+'</div><div class="obj-blurb">'+o.blurb+'</div>';
+      card.addEventListener('click', function(){
+        selectedObjectiveId = o.id;
+        if(!state.investment.useCustom){
+          document.getElementById('invRatePct').value = o.investRate;
+        }
+        document.getElementById('invHorizon').value = String(o.horizon);
+        renderObjectiveGrid();
+      });
+      host.appendChild(card);
+    });
+  }
+
   function fillInvestInputs(){
     var inv = state.investment;
     document.getElementById('invInitial').value = inv.initial;
     document.getElementById('invMonthly').value = inv.monthly;
-    document.getElementById('invCdiRate').value = inv.cdiRate;
-    document.getElementById('invCdiPercent').value = inv.cdiPercent;
-    document.getElementById('invPoupanca').value = inv.poupancaRate;
-    document.getElementById('invMonths').value = inv.months;
+    document.getElementById('invGoal').value = inv.goal || '';
+    document.getElementById('invHorizon').value = String(inv.horizonMonths || getObjective(selectedObjectiveId).horizon);
+    document.getElementById('invRatePct').value = inv.investRate;
+    document.getElementById('invParadoPct').value = inv.paradoRate;
+    if(inv.useCustom){
+      document.getElementById('advancedRates').style.display = 'block';
+    }
+    renderObjectiveGrid();
+  }
+
+  document.getElementById('useRecommendedBtn').addEventListener('click', function(){
+    var t = computeTotals();
+    var recommended = Math.round(t.income * Number(state.targetRate||0.2));
+    document.getElementById('invMonthly').value = recommended > 0 ? recommended : '';
+  });
+
+  document.getElementById('toggleAdvancedBtn').addEventListener('click', function(){
+    var panel = document.getElementById('advancedRates');
+    var isOpen = panel.style.display === 'block';
+    panel.style.display = isOpen ? 'none' : 'block';
+  });
+  ['invRatePct','invParadoPct'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', function(){
+      state.investment.useCustom = true;
+    });
+  });
+
+  // Resolve quantos meses são necessários para atingir uma meta com aportes mensais e juros compostos
+  function monthsToReachGoal(initial, monthly, annualRatePct, goal){
+    if(goal <= initial) return 0;
+    var i = Math.pow(1+annualRatePct/100, 1/12) - 1;
+    if(i <= 0){
+      return monthly>0 ? Math.ceil((goal-initial)/monthly) : Infinity;
+    }
+    if(monthly <= 0 && initial <= 0) return Infinity;
+    var denom = (initial*i + monthly);
+    if(denom <= 0) return Infinity;
+    var x = (goal*i + monthly) / denom;
+    if(x <= 0) return Infinity;
+    var n = Math.log(x) / Math.log(1+i);
+    return Math.max(1, Math.ceil(n));
+  }
+
+  function buildSeries(initial, monthly, annualRatePct, months){
+    var i = Math.pow(1+annualRatePct/100, 1/12) - 1;
+    var series = [initial];
+    var bal = initial;
+    for(var m=1; m<=months; m++){
+      bal = bal*(1+i) + monthly;
+      series.push(bal);
+    }
+    return series;
   }
 
   function runSimulation(){
     var initial = Number(document.getElementById('invInitial').value)||0;
     var monthly = Number(document.getElementById('invMonthly').value)||0;
-    var cdiAnnual = Number(document.getElementById('invCdiRate').value)||0;
-    var cdiPercent = Number(document.getElementById('invCdiPercent').value)||0;
-    var poupancaAnnual = Number(document.getElementById('invPoupanca').value)||0;
-    var months = Math.min(360, Math.max(1, Number(document.getElementById('invMonths').value)||12));
+    var goalRaw = document.getElementById('invGoal').value;
+    var goal = goalRaw ? Number(goalRaw) : null;
+    var horizonSelected = Number(document.getElementById('invHorizon').value)||24;
+    var investRate = Number(document.getElementById('invRatePct').value) || getObjective(selectedObjectiveId).investRate;
+    var paradoRate = Number(document.getElementById('invParadoPct').value) || PARADO_RATE_DEFAULT;
 
-    state.investment = {initial:initial, monthly:monthly, cdiRate:cdiAnnual, cdiPercent:cdiPercent, poupancaRate:poupancaAnnual, months:months};
+    var months = horizonSelected;
+    var monthsToGoalInvest = null, monthsToGoalParado = null;
+    if(goal && goal > 0){
+      monthsToGoalInvest = monthsToReachGoal(initial, monthly, investRate, goal);
+      monthsToGoalParado = monthsToReachGoal(initial, monthly, paradoRate, goal);
+      var candidates = [monthsToGoalInvest, monthsToGoalParado, horizonSelected].filter(function(v){ return isFinite(v) && v>0; });
+      months = candidates.length ? Math.min(240, Math.max.apply(null, candidates)) : horizonSelected;
+    }
+    months = Math.min(360, Math.max(1, Math.round(months)));
+
+    state.investment = {
+      objective: selectedObjectiveId, initial:initial, monthly:monthly, goal:goal,
+      horizonMonths: horizonSelected, investRate:investRate, paradoRate:paradoRate,
+      useCustom: state.investment.useCustom
+    };
     saveState();
 
-    var cdbAnnualRate = (cdiAnnual/100) * (cdiPercent/100);
-    var cdbMonthlyRate = Math.pow(1+cdbAnnualRate, 1/12) - 1;
-    var poupMonthlyRate = Math.pow(1+poupancaAnnual/100, 1/12) - 1;
-
-    var labels = [], cdbSeries = [], poupSeries = [];
-    var cdbBal = initial, poupBal = initial;
-    labels.push('0'); cdbSeries.push(cdbBal); poupSeries.push(poupBal);
-    for(var m=1; m<=months; m++){
-      cdbBal = cdbBal*(1+cdbMonthlyRate) + monthly;
-      poupBal = poupBal*(1+poupMonthlyRate) + monthly;
-      labels.push(String(m));
-      cdbSeries.push(cdbBal);
-      poupSeries.push(poupBal);
-    }
+    var investSeries = buildSeries(initial, monthly, investRate, months);
+    var paradoSeries = buildSeries(initial, monthly, paradoRate, months);
+    var labels = investSeries.map(function(_,idx){ return String(idx); });
 
     var ctx = document.getElementById('chartInvest').getContext('2d');
     if(investChart) investChart.destroy();
+    var datasets = [
+      {label:'Investindo', data:investSeries, borderColor:'#3D5FFF', backgroundColor:'rgba(61,95,255,.08)', fill:true, tension:.25, pointRadius:0, borderWidth:2.5},
+      {label:'Parado / poupança tradicional', data:paradoSeries, borderColor:'#98A0B3', backgroundColor:'rgba(152,160,179,.06)', fill:true, tension:.25, pointRadius:0, borderWidth:2}
+    ];
     investChart = new Chart(ctx, {
       type:'line',
-      data:{
-        labels: labels,
-        datasets:[
-          {label:'CDB ('+cdiPercent+'% do CDI)', data:cdbSeries, borderColor:'#3D5FFF', backgroundColor:'rgba(61,95,255,.08)', fill:true, tension:.25, pointRadius:0, borderWidth:2.5},
-          {label:'Poupança', data:poupSeries, borderColor:'#98A0B3', backgroundColor:'rgba(152,160,179,.06)', fill:true, tension:.25, pointRadius:0, borderWidth:2}
-        ]
-      },
+      data:{ labels: labels, datasets: datasets },
       options:{
         interaction:{mode:'index', intersect:false},
         scales:{
@@ -937,25 +1074,48 @@
       }
     });
 
+    var headline = document.getElementById('investHeadline');
+    var objLabel = getObjective(selectedObjectiveId).label;
+    if(goal && goal > 0){
+      var invTxt = isFinite(monthsToGoalInvest) ? formatMonthsHuman(monthsToGoalInvest) : 'não é possível com esses valores';
+      var parTxt = isFinite(monthsToGoalParado) ? formatMonthsHuman(monthsToGoalParado) : 'não é possível com esses valores';
+      headline.innerHTML =
+        'Para <b>'+objLabel.toLowerCase()+'</b>, guardando '+fmtBRL(monthly)+'/mês, você alcança '+fmtBRL(goal)+' em <b>'+invTxt+'</b> investindo — contra <b>'+parTxt+'</b> deixando parado.';
+    } else {
+      var finalInvest = investSeries[months];
+      var finalParado = paradoSeries[months];
+      headline.innerHTML =
+        'Em '+formatMonthsHuman(months)+', guardando '+fmtBRL(monthly)+'/mês para <b>'+objLabel.toLowerCase()+'</b>, você teria <b>'+fmtBRL(finalInvest)+'</b> investindo — contra <b>'+fmtBRL(finalParado)+'</b> deixando parado.';
+    }
+
     lastSim = {
-      months: months, cdiAnnual: cdiAnnual, cdiPercent: cdiPercent, poupancaAnnual: poupancaAnnual,
-      initial: initial, monthly: monthly,
-      finalCdb: cdbSeries[months], finalPoup: poupSeries[months]
+      objectiveLabel: objLabel, months: months, initial: initial, monthly: monthly,
+      investRate: investRate, paradoRate: paradoRate, goal: goal,
+      finalInvest: investSeries[months], finalParado: paradoSeries[months],
+      monthsToGoalInvest: monthsToGoalInvest, monthsToGoalParado: monthsToGoalParado
     };
 
     var milestoneMonths = [6,12,24,36,60].filter(function(mm){ return mm<=months; });
     var grid = document.getElementById('milestoneGrid');
     grid.innerHTML = '';
     milestoneMonths.forEach(function(mm){
-      var val = cdbSeries[mm];
       var div = document.createElement('div');
       div.className = 'milestone';
-      div.innerHTML = '<div class="m-label">'+mm+' meses</div><div class="m-value">'+fmtBRL(val)+'</div>';
+      div.innerHTML = '<div class="m-label">'+mm+' meses</div><div class="m-value">'+fmtBRL(investSeries[mm])+'</div>';
       grid.appendChild(div);
     });
     if(milestoneMonths.length===0){
       grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">Aumente o prazo para ver marcos de acúmulo.</div>';
     }
+  }
+
+  function formatMonthsHuman(m){
+    if(!isFinite(m)) return '—';
+    if(m < 12) return m+(m===1?' mês':' meses');
+    var years = Math.floor(m/12), rem = m%12;
+    var txt = years+(years===1?' ano':' anos');
+    if(rem>0) txt += ' e '+rem+(rem===1?' mês':' meses');
+    return txt;
   }
 
   document.getElementById('simulateBtn').addEventListener('click', runSimulation);
@@ -1067,14 +1227,19 @@
     if(lastSim){
       lines.push([]);
       lines.push(['SIMULACAO DE INVESTIMENTO']);
-      lines.push(['Valor inicial', lastSim.initial]);
+      lines.push(['Objetivo', lastSim.objectiveLabel]);
+      lines.push(['Valor ja guardado', lastSim.initial]);
       lines.push(['Aporte mensal', lastSim.monthly]);
-      lines.push(['CDI ao ano (%)', lastSim.cdiAnnual]);
-      lines.push(['% do CDI no CDB', lastSim.cdiPercent]);
-      lines.push(['Poupanca ao ano (%)', lastSim.poupancaAnnual]);
-      lines.push(['Prazo (meses)', lastSim.months]);
-      lines.push(['Valor final estimado - CDB', lastSim.finalCdb.toFixed(2)]);
-      lines.push(['Valor final estimado - Poupanca', lastSim.finalPoup.toFixed(2)]);
+      lines.push(['Meta de valor', lastSim.goal || 'não informada']);
+      lines.push(['Rendimento estimado investindo (% a.a.)', lastSim.investRate]);
+      lines.push(['Rendimento estimado parado/poupança (% a.a.)', lastSim.paradoRate]);
+      lines.push(['Prazo considerado (meses)', lastSim.months]);
+      lines.push(['Valor final estimado - Investindo', lastSim.finalInvest.toFixed(2)]);
+      lines.push(['Valor final estimado - Parado/poupança', lastSim.finalParado.toFixed(2)]);
+      if(lastSim.goal){
+        lines.push(['Meses para atingir a meta investindo', isFinite(lastSim.monthsToGoalInvest)?lastSim.monthsToGoalInvest:'não atinge']);
+        lines.push(['Meses para atingir a meta parado', isFinite(lastSim.monthsToGoalParado)?lastSim.monthsToGoalParado:'não atinge']);
+      }
     }
     lines.push([]);
     lines.push(['SUGESTAO DE ALOCACAO', 'Perfil: '+state.riskProfile]);
@@ -1166,19 +1331,25 @@
       if(y > 620){ doc.addPage(); y = 50; }
       doc.setFont('helvetica','bold'); doc.setFontSize(13);
       doc.text('Simulação de investimento', margin, y); y += 8;
+      var simBody = [
+        ['Objetivo', lastSim.objectiveLabel],
+        ['Valor já guardado', fmtBRL(lastSim.initial)],
+        ['Aporte mensal', fmtBRL(lastSim.monthly)],
+        ['Rendimento estimado investindo', lastSim.investRate+'% a.a.'],
+        ['Rendimento estimado parado/poupança', lastSim.paradoRate+'% a.a.'],
+        ['Prazo considerado', lastSim.months+' meses'],
+        ['Valor final estimado — Investindo', fmtBRL(lastSim.finalInvest)],
+        ['Valor final estimado — Parado/poupança', fmtBRL(lastSim.finalParado)]
+      ];
+      if(lastSim.goal){
+        simBody.splice(3, 0, ['Meta de valor', fmtBRL(lastSim.goal)]);
+        simBody.push(['Tempo para atingir a meta investindo', isFinite(lastSim.monthsToGoalInvest)?lastSim.monthsToGoalInvest+' meses':'não atinge no prazo']);
+        simBody.push(['Tempo para atingir a meta parado', isFinite(lastSim.monthsToGoalParado)?lastSim.monthsToGoalParado+' meses':'não atinge no prazo']);
+      }
       doc.autoTable({
         startY:y, margin:{left:margin,right:margin}, theme:'plain', styles:{fontSize:10, cellPadding:4},
         head:[['Parâmetro','Valor']],
-        body:[
-          ['Valor inicial', fmtBRL(lastSim.initial)],
-          ['Aporte mensal', fmtBRL(lastSim.monthly)],
-          ['CDI ao ano', lastSim.cdiAnnual+'%'],
-          ['% do CDI aplicado no CDB', lastSim.cdiPercent+'%'],
-          ['Poupança ao ano', lastSim.poupancaAnnual+'%'],
-          ['Prazo simulado', lastSim.months+' meses'],
-          ['Valor final estimado — CDB', fmtBRL(lastSim.finalCdb)],
-          ['Valor final estimado — Poupança', fmtBRL(lastSim.finalPoup)]
-        ],
+        body: simBody,
         headStyles:{fillColor:[238,241,255], textColor:[33,60,199]}
       });
       y = doc.lastAutoTable.finalY + 24;
