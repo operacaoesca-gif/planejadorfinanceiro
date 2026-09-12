@@ -6,9 +6,9 @@
 <title>Planeja+ | Planejador Financeiro Pessoal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="./libs/chart.umd.js"></script>
+<script src="./libs/jspdf.umd.min.js"></script>
+<script src="./libs/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --blue-700:#213CC7;
@@ -477,6 +477,10 @@
       <div class="card" style="margin-bottom:18px;">
         <h3>1. Qual é o seu objetivo?</h3>
         <div class="obj-grid" id="objGrid"></div>
+        <div class="field" id="customNameField" style="display:none;margin-top:14px;margin-bottom:0;">
+          <label>Dê um nome para o seu objetivo</label>
+          <input type="text" id="invCustomName" placeholder="Ex: Curso de inglês, viagem de formatura...">
+        </div>
       </div>
 
       <div class="invest-grid">
@@ -812,13 +816,15 @@
         }
       });
     }
-    var ctx = document.getElementById('chartCategorias').getContext('2d');
-    if(catChart) catChart.destroy();
-    catChart = new Chart(ctx, {
-      type:'doughnut',
-      data:{ labels:labels, datasets:[{data:data, backgroundColor:colors, borderWidth:2, borderColor:'#fff'}] },
-      options:{ cutout:'68%', plugins:{legend:{display:false}, tooltip:{enabled:data.length>1 || data[0]!==1}} }
-    });
+    try{
+      var ctx = document.getElementById('chartCategorias').getContext('2d');
+      if(catChart) catChart.destroy();
+      catChart = new Chart(ctx, {
+        type:'doughnut',
+        data:{ labels:labels, datasets:[{data:data, backgroundColor:colors, borderWidth:2, borderColor:'#fff'}] },
+        options:{ cutout:'68%', plugins:{legend:{display:false}, tooltip:{enabled:data.length>1 || data[0]!==1}} }
+      });
+    }catch(err){ console.error('Erro ao desenhar gráfico de categorias:', err); }
   }
 
   function renderDiagnostico(t, targetRate, recommended){
@@ -961,10 +967,24 @@
           document.getElementById('invRatePct').value = o.investRate;
         }
         document.getElementById('invHorizon').value = String(o.horizon);
+        document.getElementById('customNameField').style.display = (o.id === 'outro') ? 'block' : 'none';
         renderObjectiveGrid();
       });
       host.appendChild(card);
     });
+    document.getElementById('customNameField').style.display = (selectedObjectiveId === 'outro') ? 'block' : 'none';
+  }
+
+  document.getElementById('invCustomName').addEventListener('input', function(e){
+    state.investment.customName = e.target.value;
+  });
+
+  function currentObjectiveLabel(){
+    if(selectedObjectiveId === 'outro'){
+      var custom = (document.getElementById('invCustomName').value || '').trim();
+      return custom || 'seu objetivo';
+    }
+    return getObjective(selectedObjectiveId).label;
   }
 
   function fillInvestInputs(){
@@ -975,6 +995,7 @@
     document.getElementById('invHorizon').value = String(inv.horizonMonths || getObjective(selectedObjectiveId).horizon);
     document.getElementById('invRatePct').value = inv.investRate;
     document.getElementById('invParadoPct').value = inv.paradoRate;
+    document.getElementById('invCustomName').value = inv.customName || '';
     if(inv.useCustom){
       document.getElementById('advancedRates').style.display = 'block';
     }
@@ -1047,35 +1068,17 @@
     state.investment = {
       objective: selectedObjectiveId, initial:initial, monthly:monthly, goal:goal,
       horizonMonths: horizonSelected, investRate:investRate, paradoRate:paradoRate,
-      useCustom: state.investment.useCustom
+      useCustom: state.investment.useCustom, customName: state.investment.customName
     };
     saveState();
 
     var investSeries = buildSeries(initial, monthly, investRate, months);
     var paradoSeries = buildSeries(initial, monthly, paradoRate, months);
     var labels = investSeries.map(function(_,idx){ return String(idx); });
+    var objLabel = currentObjectiveLabel();
 
-    var ctx = document.getElementById('chartInvest').getContext('2d');
-    if(investChart) investChart.destroy();
-    var datasets = [
-      {label:'Investindo', data:investSeries, borderColor:'#3D5FFF', backgroundColor:'rgba(61,95,255,.08)', fill:true, tension:.25, pointRadius:0, borderWidth:2.5},
-      {label:'Parado / poupança tradicional', data:paradoSeries, borderColor:'#98A0B3', backgroundColor:'rgba(152,160,179,.06)', fill:true, tension:.25, pointRadius:0, borderWidth:2}
-    ];
-    investChart = new Chart(ctx, {
-      type:'line',
-      data:{ labels: labels, datasets: datasets },
-      options:{
-        interaction:{mode:'index', intersect:false},
-        scales:{
-          x:{title:{display:true,text:'Meses'}, ticks:{maxTicksLimit:8}},
-          y:{title:{display:true,text:'R$'}, ticks:{callback:function(v){return 'R$ '+(v/1000).toFixed(0)+'k';}}}
-        },
-        plugins:{legend:{position:'top', labels:{boxWidth:10, font:{size:11}}}}
-      }
-    });
-
+    // Texto e marcos são preenchidos independentemente do gráfico, para nunca ficarem em branco
     var headline = document.getElementById('investHeadline');
-    var objLabel = getObjective(selectedObjectiveId).label;
     if(goal && goal > 0){
       var invTxt = isFinite(monthsToGoalInvest) ? formatMonthsHuman(monthsToGoalInvest) : 'não é possível com esses valores';
       var parTxt = isFinite(monthsToGoalParado) ? formatMonthsHuman(monthsToGoalParado) : 'não é possível com esses valores';
@@ -1087,13 +1090,6 @@
       headline.innerHTML =
         'Em '+formatMonthsHuman(months)+', guardando '+fmtBRL(monthly)+'/mês para <b>'+objLabel.toLowerCase()+'</b>, você teria <b>'+fmtBRL(finalInvest)+'</b> investindo — contra <b>'+fmtBRL(finalParado)+'</b> deixando parado.';
     }
-
-    lastSim = {
-      objectiveLabel: objLabel, months: months, initial: initial, monthly: monthly,
-      investRate: investRate, paradoRate: paradoRate, goal: goal,
-      finalInvest: investSeries[months], finalParado: paradoSeries[months],
-      monthsToGoalInvest: monthsToGoalInvest, monthsToGoalParado: monthsToGoalParado
-    };
 
     var milestoneMonths = [6,12,24,36,60].filter(function(mm){ return mm<=months; });
     var grid = document.getElementById('milestoneGrid');
@@ -1107,6 +1103,37 @@
     if(milestoneMonths.length===0){
       grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">Aumente o prazo para ver marcos de acúmulo.</div>';
     }
+
+    lastSim = {
+      objectiveLabel: objLabel, months: months, initial: initial, monthly: monthly,
+      investRate: investRate, paradoRate: paradoRate, goal: goal,
+      finalInvest: investSeries[months], finalParado: paradoSeries[months],
+      monthsToGoalInvest: monthsToGoalInvest, monthsToGoalParado: monthsToGoalParado,
+      investSeries: investSeries, paradoSeries: paradoSeries, labels: labels
+    };
+
+    try{
+      var ctx = document.getElementById('chartInvest').getContext('2d');
+      if(investChart) investChart.destroy();
+      investChart = new Chart(ctx, {
+        type:'line',
+        data:{
+          labels: labels,
+          datasets:[
+            {label:'Investindo', data:investSeries, borderColor:'#3D5FFF', backgroundColor:'rgba(61,95,255,.08)', fill:true, tension:.25, pointRadius:0, borderWidth:2.5},
+            {label:'Parado / poupança tradicional', data:paradoSeries, borderColor:'#98A0B3', backgroundColor:'rgba(152,160,179,.06)', fill:true, tension:.25, pointRadius:0, borderWidth:2}
+          ]
+        },
+        options:{
+          interaction:{mode:'index', intersect:false},
+          scales:{
+            x:{title:{display:true,text:'Meses'}, ticks:{maxTicksLimit:8}},
+            y:{title:{display:true,text:'R$'}, ticks:{callback:function(v){return 'R$ '+(v/1000).toFixed(0)+'k';}}}
+          },
+          plugins:{legend:{position:'top', labels:{boxWidth:10, font:{size:11}}}}
+        }
+      });
+    }catch(err){ console.error('Erro ao desenhar gráfico de investimento:', err); }
   }
 
   function formatMonthsHuman(m){
@@ -1254,134 +1281,314 @@
   }
 
   /* ---------- Exportar PDF ---------- */
-  function exportPDF(){
-    var t = computeTotals();
-    var targetRate = Number(state.targetRate||0.2);
-    var recommended = t.income * targetRate;
-    var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
-    if(!jsPDFCtor){ alert('Não foi possível carregar o gerador de PDF. Verifique sua conexão e tente novamente.'); return; }
-    var doc = new jsPDFCtor({unit:'pt', format:'a4'});
-    var margin = 40, y = 50;
-    var pageWidth = doc.internal.pageSize.getWidth();
+  // Renderiza um gráfico Chart.js fora da tela (mesmo em abas ocultas) e devolve uma imagem PNG em base64
+  var whiteBackgroundPlugin = {
+    id: 'whiteBackgroundForExport',
+    beforeDraw: function(chart){
+      var ctx = chart.ctx;
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, chart.width, chart.height);
+      ctx.restore();
+    }
+  };
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(33,60,199);
-    doc.text('Planeja+ — Relatório de orçamento pessoal', margin, y);
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(107,115,133);
-    y += 18;
-    doc.text('Gerado em '+new Date().toLocaleDateString('pt-BR'), margin, y);
-    y += 26;
-
-    doc.setDrawColor(230,233,242); doc.line(margin, y, pageWidth-margin, y); y += 22;
-
-    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(27,34,51);
-    doc.text('Resumo financeiro', margin, y); y += 8;
-
-    doc.autoTable({
-      startY: y,
-      margin:{left:margin, right:margin},
-      theme:'plain',
-      styles:{fontSize:10, cellPadding:4},
-      head: [['Indicador','Valor']],
-      body: [
-        ['Receita mensal', fmtBRL(t.income)],
-        ['Meta de poupança', Math.round(targetRate*100)+'% da receita ('+fmtBRL(recommended)+'/mês)'],
-        ['Total de gastos', fmtBRL(t.total)],
-        ['Sobra do mês', fmtBRL(t.surplus)],
-        ['Taxa de poupança atual', Math.round(t.savingsRate*100)+'%']
-      ],
-      headStyles:{fillColor:[238,241,255], textColor:[33,60,199]}
-    });
-    y = doc.lastAutoTable.finalY + 24;
-
-    doc.setFont('helvetica','bold'); doc.setFontSize(13);
-    doc.text('Despesas cadastradas', margin, y); y += 8;
-    var expenseRows = state.expenses.map(function(e){
-      var cat = CATEGORIES.find(function(c){return c.id===e.category;});
-      return [e.name, cat?cat.label:e.category, e.type==='fixo'?'Fixo':'Variável', fmtBRL(Number(e.value))];
-    });
-    if(expenseRows.length===0) expenseRows = [['Nenhuma despesa cadastrada','—','—','—']];
-    doc.autoTable({
-      startY: y, margin:{left:margin, right:margin}, theme:'striped', styles:{fontSize:9.5, cellPadding:4},
-      head:[['Nome','Categoria','Tipo','Valor']], body: expenseRows,
-      headStyles:{fillColor:[61,95,255], textColor:[255,255,255]}
-    });
-    y = doc.lastAutoTable.finalY + 24;
-
-    if(y > 650){ doc.addPage(); y = 50; }
-    doc.setFont('helvetica','bold'); doc.setFontSize(13);
-    doc.text('Diagnóstico por categoria', margin, y); y += 8;
-    var diagRows = [];
-    CATEGORIES.forEach(function(c){
-      var v = t.byCategory[c.id];
-      if(v>0){
-        var pctIncome = t.income>0 ? (v/t.income*100).toFixed(1) : '—';
-        var status = t.income>0 && (v/t.income) > c.benchmark ? 'Acima do ideal' : 'Dentro do ideal';
-        diagRows.push([c.label, fmtBRL(v), pctIncome+'%', Math.round(c.benchmark*100)+'%', status]);
+  function makeOffscreenChartImage(config, width, height){
+    return new Promise(function(resolve){
+      var canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.style.position = 'fixed';
+      canvas.style.left = '-99999px';
+      canvas.style.top = '0';
+      document.body.appendChild(canvas);
+      var chart;
+      try{
+        var cfg = Object.assign({}, config);
+        cfg.options = Object.assign({responsive:false, maintainAspectRatio:false, animation:false, devicePixelRatio:1}, config.options||{});
+        cfg.plugins = (config.plugins||[]).concat([whiteBackgroundPlugin]);
+        chart = new Chart(canvas.getContext('2d'), cfg);
+      }catch(err){
+        console.error('Erro ao renderizar gráfico para o PDF:', err);
+        document.body.removeChild(canvas);
+        resolve(null);
+        return;
       }
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          var dataUrl = null;
+          try{ dataUrl = chart.toBase64Image('image/jpeg', 0.92); }catch(e){ console.error(e); }
+          chart.destroy();
+          document.body.removeChild(canvas);
+          resolve(dataUrl);
+        });
+      });
     });
-    if(diagRows.length===0) diagRows=[['Sem despesas cadastradas','—','—','—','—']];
-    doc.autoTable({
-      startY:y, margin:{left:margin,right:margin}, theme:'striped', styles:{fontSize:9.5, cellPadding:4},
-      head:[['Categoria','Valor','% da receita','% ideal','Status']], body:diagRows,
-      headStyles:{fillColor:[61,95,255], textColor:[255,255,255]}
-    });
-    y = doc.lastAutoTable.finalY + 24;
+  }
 
-    if(lastSim){
-      if(y > 620){ doc.addPage(); y = 50; }
-      doc.setFont('helvetica','bold'); doc.setFontSize(13);
-      doc.text('Simulação de investimento', margin, y); y += 8;
-      var simBody = [
-        ['Objetivo', lastSim.objectiveLabel],
-        ['Valor já guardado', fmtBRL(lastSim.initial)],
-        ['Aporte mensal', fmtBRL(lastSim.monthly)],
-        ['Rendimento estimado investindo', lastSim.investRate+'% a.a.'],
-        ['Rendimento estimado parado/poupança', lastSim.paradoRate+'% a.a.'],
-        ['Prazo considerado', lastSim.months+' meses'],
-        ['Valor final estimado — Investindo', fmtBRL(lastSim.finalInvest)],
-        ['Valor final estimado — Parado/poupança', fmtBRL(lastSim.finalParado)]
-      ];
-      if(lastSim.goal){
-        simBody.splice(3, 0, ['Meta de valor', fmtBRL(lastSim.goal)]);
-        simBody.push(['Tempo para atingir a meta investindo', isFinite(lastSim.monthsToGoalInvest)?lastSim.monthsToGoalInvest+' meses':'não atinge no prazo']);
-        simBody.push(['Tempo para atingir a meta parado', isFinite(lastSim.monthsToGoalParado)?lastSim.monthsToGoalParado+' meses':'não atinge no prazo']);
+  function buildCostChartConfig(t){
+    var items = CATEGORIES.map(function(c){ return {label:c.label, value:t.byCategory[c.id]||0, color:c.color}; })
+      .filter(function(it){ return it.value > 0; })
+      .sort(function(a,b){ return b.value - a.value; });
+    if(items.length === 0) return null;
+    return {
+      type:'bar',
+      data:{
+        labels: items.map(function(it){ return it.label; }),
+        datasets:[{ data: items.map(function(it){ return it.value; }), backgroundColor: items.map(function(it){ return it.color; }), borderRadius:4 }]
+      },
+      options:{
+        indexAxis:'y',
+        plugins:{legend:{display:false}},
+        scales:{ x:{ticks:{callback:function(v){return 'R$ '+v;}}}, y:{ticks:{font:{size:13}}} }
       }
+    };
+  }
+
+  function buildInvestChartConfig(sim){
+    return {
+      type:'line',
+      data:{
+        labels: sim.labels,
+        datasets:[
+          {label:'Investindo', data: sim.investSeries, borderColor:'#3D5FFF', backgroundColor:'rgba(61,95,255,.12)', fill:true, tension:.25, pointRadius:0, borderWidth:3},
+          {label:'Parado / poupança tradicional', data: sim.paradoSeries, borderColor:'#98A0B3', backgroundColor:'rgba(152,160,179,.08)', fill:true, tension:.25, pointRadius:0, borderWidth:2.5}
+        ]
+      },
+      options:{
+        interaction:{mode:'index', intersect:false},
+        scales:{
+          x:{title:{display:true,text:'Meses'}, ticks:{maxTicksLimit:10}},
+          y:{ticks:{callback:function(v){return 'R$ '+(v/1000).toFixed(0)+'k';}}}
+        },
+        plugins:{legend:{position:'top', labels:{boxWidth:14, font:{size:13}}}}
+      }
+    };
+  }
+
+  function buildAllocationChartConfig(profile){
+    var items = ALLOCATIONS[profile];
+    return {
+      type:'bar',
+      data:{
+        labels: items.map(function(a){ return a.name; }),
+        datasets:[{ data: items.map(function(a){ return a.pct; }), backgroundColor:'#3D5FFF', borderRadius:4 }]
+      },
+      options:{
+        indexAxis:'y',
+        plugins:{legend:{display:false}},
+        scales:{ x:{max:100, ticks:{callback:function(v){return v+'%';}}}, y:{ticks:{font:{size:13}}} }
+      }
+    };
+  }
+
+  async function exportPDF(){
+    var btn = document.getElementById('exportPdfBtn');
+    var originalLabel = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Gerando PDF…';
+    try{
+      var t = computeTotals();
+      var targetRate = Number(state.targetRate||0.2);
+      var recommended = t.income * targetRate;
+      var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+      if(!jsPDFCtor){ alert('Não foi possível carregar o gerador de PDF. Recarregue a página e tente novamente.'); return; }
+
+      // Gera as imagens dos gráficos antes de montar o documento
+      var costChartCfg = buildCostChartConfig(t);
+      var costImg = costChartCfg ? await makeOffscreenChartImage(costChartCfg, 900, Math.max(280, costChartCfg.data.labels.length*55)) : null;
+      var investImg = lastSim ? await makeOffscreenChartImage(buildInvestChartConfig(lastSim), 900, 440) : null;
+      var allocImg = await makeOffscreenChartImage(buildAllocationChartConfig(state.riskProfile), 900, 320);
+
+      var doc = new jsPDFCtor({unit:'pt', format:'a4'});
+      var margin = 42;
+      var pageWidth = doc.internal.pageSize.getWidth();
+      var pageHeight = doc.internal.pageSize.getHeight();
+      var contentWidth = pageWidth - margin*2;
+      var y;
+
+      function addImageFitted(dataUrl, naturalW, naturalH, startY, maxHeight){
+        var w = contentWidth;
+        var h = w * (naturalH/naturalW);
+        if(maxHeight && h > maxHeight){ h = maxHeight; w = h * (naturalW/naturalH); }
+        doc.addImage(dataUrl, 'JPEG', margin, startY, w, h);
+        return startY + h;
+      }
+
+      function ensureSpace(needed){
+        if(y + needed > pageHeight - 60){ doc.addPage(); y = 60; }
+      }
+
+      function sectionTitle(text){
+        doc.setFont('helvetica','bold'); doc.setFontSize(13.5); doc.setTextColor(27,34,51);
+        doc.text(text, margin, y);
+        y += 16;
+      }
+
+      // ---- Página de rosto / cabeçalho principal ----
+      doc.setFillColor(46,77,242);
+      doc.rect(0, 0, pageWidth, 118, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(22); doc.setTextColor(255,255,255);
+      doc.text('Planeja+', margin, 52);
+      doc.setFont('helvetica','normal'); doc.setFontSize(12.5);
+      doc.text('Relatório de Planejamento Financeiro Pessoal', margin, 74);
+      doc.setFontSize(9.5); doc.setTextColor(221,228,255);
+      doc.text('Gerado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), margin, 96);
+      y = 150;
+
+      // ---- Resumo financeiro ----
+      sectionTitle('Resumo financeiro');
       doc.autoTable({
-        startY:y, margin:{left:margin,right:margin}, theme:'plain', styles:{fontSize:10, cellPadding:4},
-        head:[['Parâmetro','Valor']],
-        body: simBody,
+        startY: y, margin:{left:margin, right:margin}, theme:'plain', styles:{fontSize:10, cellPadding:5},
+        head: [['Indicador','Valor']],
+        body: [
+          ['Receita mensal', fmtBRL(t.income)],
+          ['Meta de poupança', Math.round(targetRate*100)+'% da receita ('+fmtBRL(recommended)+'/mês)'],
+          ['Total de gastos', fmtBRL(t.total)],
+          ['Sobra do mês', fmtBRL(t.surplus)],
+          ['Taxa de poupança atual', Math.round(t.savingsRate*100)+'%']
+        ],
         headStyles:{fillColor:[238,241,255], textColor:[33,60,199]}
       });
-      y = doc.lastAutoTable.finalY + 24;
+      y = doc.lastAutoTable.finalY + 26;
+
+      // ---- Gastos por categoria (gráfico + tabela) ----
+      ensureSpace(140);
+      sectionTitle('Para onde vai o seu dinheiro');
+      if(costImg){
+        y = addImageFitted(costImg, 900, Math.max(280, (costChartCfg.data.labels.length*55)), y, 230);
+        y += 14;
+      }
+      ensureSpace(120);
+      var expenseRows = state.expenses.map(function(e){
+        var cat = CATEGORIES.find(function(c){return c.id===e.category;});
+        return [e.name, cat?cat.label:e.category, e.type==='fixo'?'Fixo':'Variável', fmtBRL(Number(e.value))];
+      });
+      if(expenseRows.length===0) expenseRows = [['Nenhuma despesa cadastrada','—','—','—']];
+      doc.autoTable({
+        startY: y, margin:{left:margin, right:margin}, theme:'striped', styles:{fontSize:9.5, cellPadding:5},
+        head:[['Nome','Categoria','Tipo','Valor']], body: expenseRows,
+        headStyles:{fillColor:[61,95,255], textColor:[255,255,255]}
+      });
+      y = doc.lastAutoTable.finalY + 26;
+
+      // ---- Diagnóstico ----
+      ensureSpace(160);
+      sectionTitle('Diagnóstico por categoria');
+      var diagRows = [];
+      CATEGORIES.forEach(function(c){
+        var v = t.byCategory[c.id];
+        if(v>0){
+          var pctIncome = t.income>0 ? (v/t.income*100).toFixed(1) : '—';
+          var status = t.income>0 && (v/t.income) > c.benchmark ? 'Acima do ideal' : 'Dentro do ideal';
+          diagRows.push([c.label, fmtBRL(v), pctIncome+'%', Math.round(c.benchmark*100)+'%', status]);
+        }
+      });
+      if(diagRows.length===0) diagRows=[['Sem despesas cadastradas','—','—','—','—']];
+      doc.autoTable({
+        startY:y, margin:{left:margin,right:margin}, theme:'striped', styles:{fontSize:9.5, cellPadding:5},
+        head:[['Categoria','Valor','% da receita','% ideal','Status']], body:diagRows,
+        headStyles:{fillColor:[61,95,255], textColor:[255,255,255]}
+      });
+      y = doc.lastAutoTable.finalY + 26;
+
+      // ---- Plano de investimento ----
+      if(lastSim){
+        ensureSpace(280);
+        sectionTitle('Seu plano: '+lastSim.objectiveLabel);
+        doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.setTextColor(70,78,95);
+        var headlineTxt;
+        if(lastSim.goal){
+          var invTxt = isFinite(lastSim.monthsToGoalInvest) ? formatMonthsHuman(lastSim.monthsToGoalInvest) : 'não é possível com esses valores';
+          var parTxt = isFinite(lastSim.monthsToGoalParado) ? formatMonthsHuman(lastSim.monthsToGoalParado) : 'não é possível com esses valores';
+          headlineTxt = 'Guardando '+fmtBRL(lastSim.monthly)+'/mês, você alcança sua meta de '+fmtBRL(lastSim.goal)+' em '+invTxt+' investindo — contra '+parTxt+' deixando o dinheiro parado.';
+        } else {
+          headlineTxt = 'Em '+formatMonthsHuman(lastSim.months)+', guardando '+fmtBRL(lastSim.monthly)+'/mês, você teria '+fmtBRL(lastSim.finalInvest)+' investindo — contra '+fmtBRL(lastSim.finalParado)+' deixando parado.';
+        }
+        var headlineLines = doc.splitTextToSize(headlineTxt, contentWidth);
+        doc.text(headlineLines, margin, y);
+        y += headlineLines.length*13 + 12;
+
+        if(investImg){
+          ensureSpace(200);
+          y = addImageFitted(investImg, 900, 440, y, 220);
+          y += 16;
+        }
+        ensureSpace(140);
+        var simBody = [
+          ['Valor já guardado', fmtBRL(lastSim.initial)],
+          ['Aporte mensal', fmtBRL(lastSim.monthly)],
+          ['Rendimento estimado investindo', lastSim.investRate+'% a.a.'],
+          ['Rendimento estimado parado/poupança', lastSim.paradoRate+'% a.a.']
+        ];
+        if(lastSim.goal) simBody.splice(0,0,['Meta de valor', fmtBRL(lastSim.goal)]);
+        doc.autoTable({
+          startY:y, margin:{left:margin,right:margin}, theme:'plain', styles:{fontSize:10, cellPadding:5},
+          head:[['Parâmetro','Valor']], body: simBody,
+          headStyles:{fillColor:[238,241,255], textColor:[33,60,199]}
+        });
+        y = doc.lastAutoTable.finalY + 26;
+      }
+
+      // ---- Sugestão de alocação ----
+      ensureSpace(280);
+      var riskLabelMap = {conservador:'Conservador', moderado:'Moderado', arrojado:'Arrojado'};
+      sectionTitle('Sugestão de alocação — perfil '+(riskLabelMap[state.riskProfile]||state.riskProfile));
+      if(allocImg){
+        y = addImageFitted(allocImg, 900, 320, y, 170);
+        y += 16;
+      }
+      ensureSpace(120);
+      doc.autoTable({
+        startY:y, margin:{left:margin,right:margin}, theme:'plain', styles:{fontSize:10, cellPadding:5},
+        head:[['Destino','% sugerido']],
+        body: ALLOCATIONS[state.riskProfile].map(function(a){ return [a.name, a.pct+'%']; }),
+        headStyles:{fillColor:[238,241,255], textColor:[33,60,199]}
+      });
+      y = doc.lastAutoTable.finalY + 20;
+
+      ensureSpace(50);
+      doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(150,155,170);
+      var disclaimer = 'Este relatório é gerado automaticamente com base nos dados informados pelo usuário e tem finalidade educativa. Não constitui recomendação de investimento personalizada. Consulte um profissional certificado para decisões específicas.';
+      doc.text(doc.splitTextToSize(disclaimer, contentWidth), margin, y+8);
+
+      // ---- Cabeçalho fino e rodapé em todas as páginas ----
+      var totalPages = doc.getNumberOfPages();
+      for(var p=1; p<=totalPages; p++){
+        doc.setPage(p);
+        if(p > 1){
+          doc.setFillColor(61,95,255);
+          doc.rect(0, 0, pageWidth, 6, 'F');
+        }
+        doc.setDrawColor(230,233,242);
+        doc.line(margin, pageHeight-34, pageWidth-margin, pageHeight-34);
+        doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(150,155,170);
+        doc.text('Planeja+ — Relatório pessoal e confidencial', margin, pageHeight-20);
+        doc.text('Página '+p+' de '+totalPages, pageWidth-margin, pageHeight-20, {align:'right'});
+      }
+
+      doc.save('planeja-relatorio.pdf');
+    } catch(err){
+      console.error('Erro ao gerar PDF:', err);
+      alert('Não foi possível gerar o PDF agora. Tente novamente em instantes.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalLabel;
     }
-
-    if(y > 620){ doc.addPage(); y = 50; }
-    doc.setFont('helvetica','bold'); doc.setFontSize(13);
-    doc.text('Sugestão de alocação — perfil '+state.riskProfile, margin, y); y += 8;
-    doc.autoTable({
-      startY:y, margin:{left:margin,right:margin}, theme:'plain', styles:{fontSize:10, cellPadding:4},
-      head:[['Destino','% sugerido']],
-      body: ALLOCATIONS[state.riskProfile].map(function(a){ return [a.name, a.pct+'%']; }),
-      headStyles:{fillColor:[238,241,255], textColor:[33,60,199]}
-    });
-    y = doc.lastAutoTable.finalY + 20;
-
-    doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(150,155,170);
-    var disclaimer = 'Este relatório é gerado automaticamente com base nos dados informados pelo usuário e tem finalidade educativa. Não constitui recomendação de investimento personalizada.';
-    doc.text(doc.splitTextToSize(disclaimer, pageWidth - margin*2), margin, y+10);
-
-    doc.save('planeja-relatorio.pdf');
   }
 
   document.getElementById('exportSheetBtn').addEventListener('click', exportCSV);
   document.getElementById('exportPdfBtn').addEventListener('click', exportPDF);
 
   /* ---------- Init ---------- */
-  renderDashboard();
-  renderExpenses();
-  fillInvestInputs();
-  runSimulation();
-  renderSugestoes();
+  function safeInit(fn, label){
+    try{ fn(); }catch(err){ console.error('Erro ao iniciar '+label+':', err); }
+  }
+  safeInit(renderDashboard, 'dashboard');
+  safeInit(renderExpenses, 'despesas');
+  safeInit(fillInvestInputs, 'formulário de investimentos');
+  safeInit(runSimulation, 'simulação de investimentos');
+  safeInit(renderSugestoes, 'sugestões');
 
 })();
 </script>
