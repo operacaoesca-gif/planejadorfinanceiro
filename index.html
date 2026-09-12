@@ -6,9 +6,45 @@
 <title>Planeja+ | Planejador Financeiro Pessoal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="./libs/chart.umd.js"></script>
-<script src="./libs/jspdf.umd.min.js"></script>
-<script src="./libs/jspdf.plugin.autotable.min.js"></script>
+<script>
+  // Carrega Chart.js e jsPDF: tenta os arquivos locais primeiro; se falharem (arquivo
+  // ausente, bloqueio de rede, etc.), busca automaticamente de um CDN de backup.
+  function loadScriptSeq(urls){
+    return new Promise(function(resolve, reject){
+      function tryNext(i){
+        if(i >= urls.length){ reject(new Error('Falha ao carregar: '+urls.join(', '))); return; }
+        var s = document.createElement('script');
+        var done = false;
+        var timer = setTimeout(function(){ if(!done){ done = true; s.remove(); tryNext(i+1); } }, 6000);
+        s.src = urls[i];
+        s.onload = function(){ if(!done){ done = true; clearTimeout(timer); resolve(); } };
+        s.onerror = function(){ if(!done){ done = true; clearTimeout(timer); s.remove(); tryNext(i+1); } };
+        document.head.appendChild(s);
+      }
+      tryNext(0);
+    });
+  }
+  window.ensurePlanejaLibs = function(){
+    if(window.__planejaLibsPromise) return window.__planejaLibsPromise;
+    window.__planejaLibsPromise = (async function(){
+      if(typeof window.Chart === 'undefined'){
+        try{ await loadScriptSeq(['./libs/chart.umd.js','https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js']); }
+        catch(e){ console.error('Chart.js indisponível:', e); }
+      }
+      if(!(window.jspdf && window.jspdf.jsPDF)){
+        try{ await loadScriptSeq(['./libs/jspdf.umd.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js']); }
+        catch(e){ console.error('jsPDF indisponível:', e); }
+      }
+      if(!(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)){
+        try{ await loadScriptSeq(['./libs/jspdf.plugin.autotable.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js']); }
+        catch(e){ console.error('jsPDF-AutoTable indisponível:', e); }
+      }
+    })();
+    return window.__planejaLibsPromise;
+  };
+  // Começa a carregar já, sem bloquear o resto da página
+  window.ensurePlanejaLibs();
+</script>
 <style>
   :root{
     --blue-700:#213CC7;
@@ -597,7 +633,7 @@
 </div>
 
 <script>
-(function(){
+(async function(){
   "use strict";
 
   var CATEGORIES = [
@@ -1388,11 +1424,12 @@
     btn.disabled = true;
     btn.innerHTML = 'Gerando PDF…';
     try{
+      if(window.ensurePlanejaLibs){ await window.ensurePlanejaLibs(); }
       var t = computeTotals();
       var targetRate = Number(state.targetRate||0.2);
       var recommended = t.income * targetRate;
       var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
-      if(!jsPDFCtor){ alert('Não foi possível carregar o gerador de PDF. Recarregue a página e tente novamente.'); return; }
+      if(!jsPDFCtor){ alert('Não foi possível carregar o gerador de PDF. Verifique sua conexão com a internet e tente novamente em alguns segundos.'); return; }
 
       // Gera as imagens dos gráficos antes de montar o documento
       var costChartCfg = buildCostChartConfig(t);
@@ -1584,6 +1621,7 @@
   function safeInit(fn, label){
     try{ fn(); }catch(err){ console.error('Erro ao iniciar '+label+':', err); }
   }
+  if(window.ensurePlanejaLibs){ await window.ensurePlanejaLibs(); }
   safeInit(renderDashboard, 'dashboard');
   safeInit(renderExpenses, 'despesas');
   safeInit(fillInvestInputs, 'formulário de investimentos');
